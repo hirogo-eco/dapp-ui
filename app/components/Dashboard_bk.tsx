@@ -20,7 +20,6 @@ import { useTransactions } from '../hooks/useTransactions';
 import DebugInfo from './DebugInfo';
 import BalanceDisplay from './BalanceDisplay';
 import TokenInfoCard from './TokenInfoCard';
-import { createCosmosKey } from '../actions/cosmos';
 
 const Dashboard: React.FC = () => {
   const { wallet, nativeBalance, tokenBalance, isLoading, provider, contract } = useWeb3();
@@ -28,48 +27,6 @@ const Dashboard: React.FC = () => {
   const [statsLoading, setStatsLoading] = useState(false);
   const [validators, setValidators] = useState<any[]>([]);
   const [validatorsLoading, setValidatorsLoading] = useState(false);
-  const [joiningValidator, setJoiningValidator] = useState<string | null>(null);
-
-  // Handle join validator - simplified
-  const handleJoinValidator = async (validator: any) => {
-    if (!wallet.address || !provider) return;
-
-    setJoiningValidator(validator.address);
-    try {
-      // Method 1: Ask user to input real private key from MetaMask
-      const privateKey = prompt('Nhập private key từ MetaMask (Account Details > Export Private Key):');
-      if (!privateKey) {
-        alert('Cần private key thật từ MetaMask để tạo Cosmos key');
-        return;
-      }
-
-      // Verify private key matches current address
-      const wallet = new ethers.Wallet(privateKey);
-      if (wallet.address.toLowerCase() !== wallet.address.toLowerCase()) {
-        alert('Private key không khớp với địa chỉ hiện tại!');
-        return;
-      }
-
-      // Sign message for verification
-      const message = `Join validator ${validator.moniker} for staking`;
-      const signer = await provider.getSigner();
-      const signature = await signer.signMessage(message);
-
-      const keyName = `staker_${wallet.address.slice(-8)}`;
-      const result = await createCosmosKey(keyName, signature, validator.address, privateKey);
-
-      if (result.success) {
-        alert(`✅ Đã tham gia ${validator.moniker}!\n\nKey: ${keyName}\nCosmos Address: ${result.cosmosAddress}\n\n✅ Cùng private key = cùng tiền!`);
-      } else {
-        throw new Error(result.error || 'Failed to join validator');
-      }
-    } catch (error: any) {
-      console.error('Failed to join validator:', error);
-      alert(`❌ Lỗi: ${error.message}`);
-    } finally {
-      setJoiningValidator(null);
-    }
-  };
 
   // Use the new transactions hook
   const { transactions: recentTransactions, loading: transactionsLoading } = useTransactions(5);
@@ -363,18 +320,11 @@ const Dashboard: React.FC = () => {
                           <p className="text-xs text-red-500 font-medium">JAILED</p>
                         )}
                       </div>
-
-                      {!validator.jailed && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleJoinValidator(validator)}
-                          loading={joiningValidator === validator.address}
-                          disabled={joiningValidator !== null}
-                          className="ml-2"
-                        >
-                          {joiningValidator === validator.address ? 'Joining...' : 'Tham gia'}
-                        </Button>
-                      )}
+                      <div className={`h-3 w-3 rounded-full flex-shrink-0 ml-2 ${
+                        validator.jailed ? 'bg-red-500' :
+                        index === 0 ? 'bg-green-500' :
+                        'bg-blue-500'
+                      }`}></div>
                     </div>
                   </div>
                 ))}

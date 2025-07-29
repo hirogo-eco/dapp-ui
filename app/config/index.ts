@@ -8,6 +8,7 @@ export const config = {
   // Network configuration
   CHAIN_ID: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '9000'),
   RPC_URL: process.env.NEXT_PUBLIC_RPC_URL || 'http://127.0.0.1:8545',
+  COSMOS_REST_URL: process.env.NEXT_PUBLIC_COSMOS_REST_URL || 'http://localhost:1317',
 
   // API configuration
   API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001/api',

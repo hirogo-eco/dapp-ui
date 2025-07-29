@@ -35,7 +35,7 @@ interface Web3State {
 
 // Web3 Context Actions
 interface Web3ContextValue extends Web3State {
-  connectWallet: (forceAccountSelection?: boolean) => Promise<void>;
+  connectWallet: () => Promise<void>;
   disconnectWallet: () => void;
   switchNetwork: (chainId: number) => Promise<void>;
   addTokenToWallet: () => Promise<void>;
@@ -192,7 +192,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Connect wallet
-  const connectWallet = useCallback(async (forceAccountSelection = false) => {
+  const connectWallet = useCallback(async () => {
     if (typeof window === 'undefined' || !window.ethereum) {
       throw new Error(config.ERRORS.METAMASK_NOT_INSTALLED);
     }
@@ -200,27 +200,8 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: { isLoading: true } });
 
-      let accounts;
-
-      if (forceAccountSelection) {
-        // Force MetaMask to show account selection dialog
-        // First, try to revoke permissions (this might not work in all cases)
-        try {
-          await window.ethereum.request({
-            method: 'wallet_revokePermissions',
-            params: [{ eth_accounts: {} }]
-          });
-        } catch (error) {
-          // Ignore errors - this method might not be supported
-          console.log('wallet_revokePermissions not supported, continuing...');
-        }
-
-        // Small delay to ensure permission revocation is processed
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-
       // Request account access
-      accounts = await window.ethereum.request({
+      const accounts = await window.ethereum.request({
         method: 'eth_requestAccounts',
       });
 
@@ -252,10 +233,6 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       // Store in localStorage
       localStorage.setItem('wallet_connected', 'true');
       localStorage.setItem('wallet_address', address);
-      localStorage.setItem('last_connected_address', address);
-      // Clear disconnect flags when successfully connecting
-      localStorage.removeItem('wallet_manually_disconnected');
-      sessionStorage.removeItem('session_disconnected');
 
       // Refresh balances after connection
       try {
@@ -294,10 +271,6 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'WALLET_DISCONNECTED' });
     localStorage.removeItem('wallet_connected');
     localStorage.removeItem('wallet_address');
-    localStorage.removeItem('last_connected_address');
-    // Set flags to indicate manual disconnect
-    localStorage.setItem('wallet_manually_disconnected', 'true');
-    sessionStorage.setItem('session_disconnected', 'true');
   }, []);
 
   // Switch network
@@ -515,41 +488,19 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     };
   }, [disconnectWallet]);
 
-  // Auto-connect if previously connected and user hasn't manually disconnected
+  // Auto-connect if previously connected
   useEffect(() => {
     const autoConnect = async () => {
       const wasConnected = localStorage.getItem('wallet_connected');
-      const manuallyDisconnected = localStorage.getItem('wallet_manually_disconnected');
-      const sessionDisconnected = sessionStorage.getItem('session_disconnected');
-
-      // Don't auto-connect if:
-      // 1. User manually disconnected
-      // 2. User disconnected in this session
-      // 3. Was never connected before
-      if (manuallyDisconnected === 'true' || sessionDisconnected === 'true' || wasConnected !== 'true') {
-        return;
-      }
-
-      // Only auto-connect if was connected and not manually disconnected
-      if (window.ethereum) {
+      if (wasConnected === 'true' && window.ethereum) {
         try {
-          // Check if already connected and user hasn't changed accounts
+          // Check if already connected
           const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          const lastConnectedAddress = localStorage.getItem('last_connected_address');
-
-          if (accounts.length > 0 && lastConnectedAddress && accounts.includes(lastConnectedAddress)) {
-            // Only auto-connect if the same address is still available and user didn't disconnect
-            await connectWallet(false); // false = don't force account selection
-          } else {
-            // Clear connection state if address changed or not available
-            localStorage.removeItem('wallet_connected');
-            localStorage.removeItem('last_connected_address');
+          if (accounts.length > 0) {
+            await connectWallet();
           }
         } catch (error) {
           console.error('Auto-connect failed:', error);
-          // Clear connection state on error
-          localStorage.removeItem('wallet_connected');
-          localStorage.removeItem('last_connected_address');
         }
       }
     };

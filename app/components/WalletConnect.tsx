@@ -31,44 +31,11 @@ const WalletConnect: React.FC = () => {
   const handleConnect = async () => {
     setIsConnecting(true);
     try {
-      // Check if user manually disconnected - if so, force account selection
-      const manuallyDisconnected = localStorage.getItem('wallet_manually_disconnected');
-      const sessionDisconnected = sessionStorage.getItem('session_disconnected');
-      const forceSelection = manuallyDisconnected === 'true' || sessionDisconnected === 'true';
-
-      await connectWallet(forceSelection);
+      await connectWallet();
       setShowModal(false);
     } catch (error: any) {
       console.error('Failed to connect:', error);
       // You might want to show a toast notification here
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
-  const handleConnectDifferentWallet = async () => {
-    setIsConnecting(true);
-    try {
-      // Clear auto-connect data to force wallet selection
-      localStorage.removeItem('wallet_connected');
-      localStorage.removeItem('last_connected_address');
-      localStorage.setItem('wallet_manually_disconnected', 'true');
-      sessionStorage.setItem('session_disconnected', 'true');
-
-      // Force MetaMask to show account selection
-      if (window.ethereum) {
-        // First disconnect current connection
-        disconnectWallet();
-
-        // Small delay to ensure disconnect is processed
-        await new Promise(resolve => setTimeout(resolve, 200));
-
-        // Then request new connection with forced account selection
-        await connectWallet(true);
-      }
-      setShowModal(false);
-    } catch (error: any) {
-      console.error('Failed to connect different wallet:', error);
     } finally {
       setIsConnecting(false);
     }
@@ -282,25 +249,14 @@ const WalletConnect: React.FC = () => {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <div className="flex space-x-3">
-                <Button
-                  onClick={handleAddToken}
-                  variant="secondary"
-                  className="flex-1"
-                >
-                  Add {config.TOKEN_SYMBOL} to Wallet
-                </Button>
-
-                <Button
-                  onClick={handleConnectDifferentWallet}
-                  variant="secondary"
-                  className="flex-1"
-                  loading={isConnecting}
-                >
-                  Switch Wallet
-                </Button>
-              </div>
+            <div className="flex space-x-3">
+              <Button
+                onClick={handleAddToken}
+                variant="secondary"
+                className="flex-1"
+              >
+                Add {config.TOKEN_SYMBOL} to Wallet
+              </Button>
 
               <Button
                 onClick={() => {
@@ -308,7 +264,7 @@ const WalletConnect: React.FC = () => {
                   setShowModal(false);
                 }}
                 variant="danger"
-                className="w-full"
+                className="flex-1"
               >
                 Disconnect
               </Button>
