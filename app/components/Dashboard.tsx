@@ -21,55 +21,12 @@ import DebugInfo from './DebugInfo';
 import BalanceDisplay from './BalanceDisplay';
 import TokenInfoCard from './TokenInfoCard';
 import { createCosmosKey } from '../actions/cosmos';
+import ValidatorStaking from './ValidatorStaking';
 
 const Dashboard: React.FC = () => {
   const { wallet, nativeBalance, tokenBalance, isLoading, provider, contract } = useWeb3();
   const [tokenStats, setTokenStats] = useState<TokenStats | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
-  const [validators, setValidators] = useState<any[]>([]);
-  const [validatorsLoading, setValidatorsLoading] = useState(false);
-  const [joiningValidator, setJoiningValidator] = useState<string | null>(null);
-
-  // Handle join validator - simplified
-  const handleJoinValidator = async (validator: any) => {
-    if (!wallet.address || !provider) return;
-
-    setJoiningValidator(validator.address);
-    try {
-      // Method 1: Ask user to input real private key from MetaMask
-      const privateKey = prompt('Nhập private key từ MetaMask (Account Details > Export Private Key):');
-      if (!privateKey) {
-        alert('Cần private key thật từ MetaMask để tạo Cosmos key');
-        return;
-      }
-
-      // Verify private key matches current address
-      const wallet = new ethers.Wallet(privateKey);
-      if (wallet.address.toLowerCase() !== wallet.address.toLowerCase()) {
-        alert('Private key không khớp với địa chỉ hiện tại!');
-        return;
-      }
-
-      // Sign message for verification
-      const message = `Join validator ${validator.moniker} for staking`;
-      const signer = await provider.getSigner();
-      const signature = await signer.signMessage(message);
-
-      const keyName = `staker_${wallet.address.slice(-8)}`;
-      const result = await createCosmosKey(keyName, signature, validator.address, privateKey);
-
-      if (result.success) {
-        alert(`✅ Đã tham gia ${validator.moniker}!\n\nKey: ${keyName}\nCosmos Address: ${result.cosmosAddress}\n\n✅ Cùng private key = cùng tiền!`);
-      } else {
-        throw new Error(result.error || 'Failed to join validator');
-      }
-    } catch (error: any) {
-      console.error('Failed to join validator:', error);
-      alert(`❌ Lỗi: ${error.message}`);
-    } finally {
-      setJoiningValidator(null);
-    }
-  };
 
   // Use the new transactions hook
   const { transactions: recentTransactions, loading: transactionsLoading } = useTransactions(5);
@@ -136,78 +93,6 @@ const Dashboard: React.FC = () => {
     fetchTokenStats();
   }, [wallet.isConnected, provider, contract, tokenBalance.formattedBalance]);
 
-  // Fetch validators data from Ethermint
-  useEffect(() => {
-    const fetchValidators = async () => {
-      setValidatorsLoading(true);
-      try {
-        // Fetch validators and pool data from Ethermint REST API
-        const [validatorsRes, poolRes] = await Promise.all([
-          fetch(`${config.COSMOS_REST_URL}/cosmos/staking/v1beta1/validators?status=BOND_STATUS_BONDED`),
-          fetch(`${config.COSMOS_REST_URL}/cosmos/staking/v1beta1/pool`)
-        ]);
-
-        if (!validatorsRes.ok || !poolRes.ok) {
-          throw new Error('Failed to fetch validator data');
-        }
-
-        const validatorsData = await validatorsRes.json();
-        const poolData = await poolRes.json();
-
-        const bondedTokens = Number(poolData.pool.bonded_tokens);
-
-        const validatorList = validatorsData.validators.map((v: any) => ({
-          moniker: v.description.moniker,
-          address: v.operator_address,
-          tokens: Number(v.tokens),
-          votingPowerPercent: ((Number(v.tokens) / bondedTokens) * 100).toFixed(2),
-          status: v.status,
-          jailed: v.jailed
-        }));
-
-        // Sort by voting power (descending)
-        validatorList.sort((a: any, b: any) => b.tokens - a.tokens);
-
-        setValidators(validatorList.slice(0, 6)); // Show top 6 validators
-      } catch (error) {
-        console.error('Failed to fetch validators:', error);
-        // Fallback to mock data
-        setValidators([
-          {
-            moniker: 'Validator 1',
-            address: 'ethermintvaloper1...',
-            votingPowerPercent: '25.5',
-            tokens: 1000000,
-            status: 'BOND_STATUS_BONDED',
-            jailed: false
-          },
-          {
-            moniker: 'Validator 2',
-            address: 'ethermintvaloper2...',
-            votingPowerPercent: '18.2',
-            tokens: 750000,
-            status: 'BOND_STATUS_BONDED',
-            jailed: false
-          },
-          {
-            moniker: 'Validator 3',
-            address: 'ethermintvaloper3...',
-            votingPowerPercent: '12.8',
-            tokens: 500000,
-            status: 'BOND_STATUS_BONDED',
-            jailed: false
-          }
-        ]);
-      } finally {
-        setValidatorsLoading(false);
-      }
-    };
-
-    fetchValidators();
-  }, []);
-
-
-
   if (!wallet.isConnected) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
@@ -262,6 +147,10 @@ const Dashboard: React.FC = () => {
         {/* Balance Display */}
         <div className="mb-8">
           <BalanceDisplay showBoth={true} />
+        </div>
+        <div className="grid gap-8 mb-8">
+          <ValidatorStaking />
+          {/* Other existing components */}
         </div>
 
         {/* Stats Grid */}
@@ -322,74 +211,7 @@ const Dashboard: React.FC = () => {
           </Card>
         </div>
 
-        {/* Ethermint Validators */}
-        <Card title="Ethermint Validators" className="mb-8">
-          {validatorsLoading ? (
-            <div className="text-center py-8">
-              <LoadingSpinner className="mx-auto h-8 w-8" />
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
-                Loading validators...
-              </p>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {validators.map((validator, index) => (
-                  <div
-                    key={validator.address}
-                    className={`${
-                      validator.jailed ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' :
-                      index === 0 ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' :
-                      'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800'
-                    } rounded-lg p-4`}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1 min-w-0">
-                        <p className={`text-sm font-medium truncate ${
-                          validator.jailed ? 'text-red-700 dark:text-red-300' :
-                          index === 0 ? 'text-green-700 dark:text-green-300' :
-                          'text-blue-700 dark:text-blue-300'
-                        }`}>
-                          {validator.moniker} ({validator.votingPowerPercent}%)
-                        </p>
-                        <p className={`text-xs truncate ${
-                          validator.jailed ? 'text-red-600 dark:text-red-400' :
-                          index === 0 ? 'text-green-600 dark:text-green-400' :
-                          'text-blue-600 dark:text-blue-400'
-                        }`}>
-                          {validator.address.slice(0, 20)}...
-                        </p>
-                        {validator.jailed && (
-                          <p className="text-xs text-red-500 font-medium">JAILED</p>
-                        )}
-                      </div>
-
-                      {!validator.jailed && (
-                        <Button
-                          size="sm"
-                          onClick={() => handleJoinValidator(validator)}
-                          loading={joiningValidator === validator.address}
-                          disabled={joiningValidator !== null}
-                          className="ml-2"
-                        >
-                          {joiningValidator === validator.address ? 'Joining...' : 'Tham gia'}
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {validators.length === 0 && (
-                <div className="text-center py-4">
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
-                    No validators found
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </Card>
+        {/* Remove entire Ethermint Validators Card section */}
 
         {/* Action Cards */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">

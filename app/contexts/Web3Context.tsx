@@ -315,22 +315,65 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
     }
 
     try {
-      await window.ethereum.request({
-        method: 'wallet_watchAsset',
-        params: [{
-          type: 'ERC20',
-          options: {
-            address: config.CONTRACT_ADDRESS,
-            symbol: config.TOKEN_SYMBOL,
-            decimals: config.TOKEN_DECIMALS,
+      // First verify contract exists and is valid
+      if (state.provider && state.contract) {
+        try {
+          // Test if contract is valid ERC20
+          const [name, symbol, decimals] = await Promise.all([
+            state.contract.name(),
+            state.contract.symbol(),
+            state.contract.decimals()
+          ]);
+
+          console.log('Token info:', { name, symbol, decimals: decimals.toString() });
+
+          // Use actual contract data
+          await window.ethereum.request({
+            method: 'wallet_watchAsset',
+            params: {
+              type: 'ERC20',
+              options: {
+                address: config.CONTRACT_ADDRESS,
+                symbol: symbol,
+                decimals: Number(decimals),
+                image: '', // Optional
+              },
+            },
+          });
+        } catch (contractError) {
+          console.error('Contract validation failed:', contractError);
+          // Fallback to config values
+          await window.ethereum.request({
+            method: 'wallet_watchAsset',
+            params: {
+              type: 'ERC20',
+              options: {
+                address: config.CONTRACT_ADDRESS,
+                symbol: config.TOKEN_SYMBOL,
+                decimals: config.TOKEN_DECIMALS,
+              },
+            },
+          });
+        }
+      } else {
+        // No contract available, use config
+        await window.ethereum.request({
+          method: 'wallet_watchAsset',
+          params: {
+            type: 'ERC20',
+            options: {
+              address: config.CONTRACT_ADDRESS,
+              symbol: config.TOKEN_SYMBOL,
+              decimals: config.TOKEN_DECIMALS,
+            },
           },
-        }],
-      });
+        });
+      }
     } catch (error: any) {
       console.error('Failed to add token to wallet:', error);
       throw new Error('Failed to add token to wallet');
     }
-  }, []);
+  }, [state.provider, state.contract]);
 
   // Send transaction
   const sendTransaction = useCallback(async (to: string, amount: string): Promise<string> => {
@@ -370,30 +413,35 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
 
   // Refresh token balance
   const refreshBalance = useCallback(async () => {
-    if (!state.contract || !state.wallet.address) {
-      return;
-    }
+    if (!state.wallet.address) return;
 
     try {
-      const balance = await state.contract.balanceOf(state.wallet.address);
+      // Always create fresh provider
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(config.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+      const balance = await contract.balanceOf(state.wallet.address);
       dispatch({
         type: 'BALANCE_UPDATED',
         payload: { balance: balance.toString() },
       });
+
+      console.log('Token balance refreshed:', ethers.formatEther(balance));
     } catch (error) {
       console.error('Failed to refresh token balance:', error);
     }
-  }, [state.contract, state.wallet.address]);
+  }, [state.wallet.address]);
 
   // Refresh native balance
   const refreshNativeBalance = useCallback(async () => {
-    if (!state.provider || !state.wallet.address) {
-      return;
-    }
+    if (!state.wallet.address) return;
 
     try {
-      const balance = await state.provider.getBalance(state.wallet.address);
+      // Always create fresh provider
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const balance = await provider.getBalance(state.wallet.address);
       const networkInfo = getNetworkByChainId(state.wallet.chainId || config.CHAIN_ID);
+
       dispatch({
         type: 'NATIVE_BALANCE_UPDATED',
         payload: {
@@ -401,10 +449,12 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
           symbol: networkInfo?.nativeCurrency.symbol || 'ETH'
         },
       });
+
+      console.log('Native balance refreshed:', ethers.formatEther(balance));
     } catch (error) {
       console.error('Failed to refresh native balance:', error);
     }
-  }, [state.provider, state.wallet.address, state.wallet.chainId]);
+  }, [state.wallet.address, state.wallet.chainId]);
 
   // Get transaction history (placeholder - would need to implement with backend API)
   const getTransactionHistory = useCallback(async (): Promise<Transaction[]> => {
@@ -517,18 +567,19 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        // Initialize provider if not already done
-        if (!state.provider && window.ethereum) {
+        // Always re-initialize provider to get fresh data
+        if (window.ethereum) {
           const provider = new ethers.BrowserProvider(window.ethereum);
           const signer = await provider.getSigner();
           const contract = new ethers.Contract(config.CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
+          // Update provider in state
           dispatch({
             type: 'SET_PROVIDER',
             payload: { provider, contract, signer },
           });
 
-          // Fetch native balance
+          // Force fresh balance fetch
           const nativeBalance = await provider.getBalance(state.wallet.address);
           const networkInfo = getNetworkByChainId(state.wallet.chainId || config.CHAIN_ID);
           dispatch({
@@ -539,25 +590,7 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
             },
           });
 
-          // Fetch token balance
           const tokenBalance = await contract.balanceOf(state.wallet.address);
-          dispatch({
-            type: 'BALANCE_UPDATED',
-            payload: { balance: tokenBalance.toString() },
-          });
-        } else if (state.provider && state.contract) {
-          // If provider exists, just refresh balances
-          const nativeBalance = await state.provider.getBalance(state.wallet.address);
-          const networkInfo = getNetworkByChainId(state.wallet.chainId || config.CHAIN_ID);
-          dispatch({
-            type: 'NATIVE_BALANCE_UPDATED',
-            payload: {
-              balance: nativeBalance.toString(),
-              symbol: networkInfo?.nativeCurrency.symbol || config.NATIVE_TOKEN_SYMBOL
-            },
-          });
-
-          const tokenBalance = await state.contract.balanceOf(state.wallet.address);
           dispatch({
             type: 'BALANCE_UPDATED',
             payload: { balance: tokenBalance.toString() },
@@ -583,6 +616,52 @@ export function Web3Provider({ children }: { children: React.ReactNode }) {
       return () => clearInterval(interval);
     }
   }, [state.wallet.isConnected, state.wallet.isCorrectNetwork, state.contract, state.provider, refreshBalance, refreshNativeBalance]);
+
+  // Force refresh balances on page load
+  useEffect(() => {
+    const forceRefreshOnLoad = async () => {
+      if (state.wallet.isConnected && state.wallet.address && window.ethereum) {
+        console.log('Force refreshing balances on page load...');
+
+        try {
+          const provider = new ethers.BrowserProvider(window.ethereum);
+          const contract = new ethers.Contract(config.CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+          // Get fresh balances
+          const [nativeBalance, tokenBalance] = await Promise.all([
+            provider.getBalance(state.wallet.address),
+            contract.balanceOf(state.wallet.address)
+          ]);
+
+          const networkInfo = getNetworkByChainId(state.wallet.chainId || config.CHAIN_ID);
+
+          dispatch({
+            type: 'NATIVE_BALANCE_UPDATED',
+            payload: {
+              balance: nativeBalance.toString(),
+              symbol: networkInfo?.nativeCurrency.symbol || config.NATIVE_TOKEN_SYMBOL
+            },
+          });
+
+          dispatch({
+            type: 'BALANCE_UPDATED',
+            payload: { balance: tokenBalance.toString() },
+          });
+
+          console.log('Balances refreshed:', {
+            native: ethers.formatEther(nativeBalance),
+            token: ethers.formatEther(tokenBalance)
+          });
+        } catch (error) {
+          console.error('Force refresh failed:', error);
+        }
+      }
+    };
+
+    // Run after a short delay to ensure wallet is connected
+    const timer = setTimeout(forceRefreshOnLoad, 1000);
+    return () => clearTimeout(timer);
+  }, []); // Run once on mount
 
   const contextValue: Web3ContextValue = {
     ...state,

@@ -45,4 +45,44 @@ export async function createCosmosKey(
   }
 }
 
+export async function createCosmosKeyFromSignature(
+  keyName: string,
+  signature: string,
+  validatorAddress: string,
+  ethAddress: string
+) {
+  try {
+    // Create deterministic seed from signature + eth address
+    const crypto = require('crypto');
+    const seedData = signature + ethAddress + validatorAddress;
+    const seed = crypto.createHash('sha256').update(seedData).digest('hex');
+    
+    // Use first 32 bytes as private key
+    const cosmosPrivateKey = seed.slice(0, 64); // 32 bytes = 64 hex chars
+
+    // Import key using derived private key
+    const password = `pass${keyName}123`;
+    const importKeyCommand = `echo "${password}" | ethermintd keys unsafe-import-eth-key ${keyName} ${cosmosPrivateKey} --keyring-backend test`;
+    await execAsync(importKeyCommand);
+
+    // Get cosmos address
+    const showKeyCommand = `ethermintd keys show ${keyName} --keyring-backend test --output json`;
+    const { stdout } = await execAsync(showKeyCommand);
+    const keyInfo = JSON.parse(stdout);
+
+    return {
+      success: true,
+      cosmosAddress: keyInfo.address,
+      keyName,
+      validatorAddress,
+      derivedFromSignature: true
+    };
+  } catch (error: any) {
+    return {
+      success: false,
+      error: error.message
+    };
+  }
+}
+
 
