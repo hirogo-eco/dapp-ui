@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
 
     const stakingInfo = {
       delegated: (totalDelegated / 1e18).toString(),
-      rewards: (totalRewards / 1e18).toString(),
+      rewards: totalRewards,
       delegations: delegationsData.delegation_responses?.map((del: any) => ({
         validator: del.delegation.validator_address,
         amount: del.balance.amount
