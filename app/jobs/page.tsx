@@ -15,7 +15,7 @@ const JobsPage: React.FC = () => {
   });
 
   const JOB_PAYMENT_ABI = [
-    "function requestJob(string memory jobType, string memory params) external",
+    "function requestJob(string memory jobType, string memory params) external payable",
     "function jobs(uint256) view returns (uint256 id, address requester, address provider, string jobType, uint256 payment, uint8 status, uint256 createdAt, uint256 completedAt, string params)",
     "function jobTypePrices(string) view returns (uint256)",
     "function nextJobId() view returns (uint256)",
@@ -45,36 +45,19 @@ const JobsPage: React.FC = () => {
 
       // Check job price
       const jobPrice = await contract.jobTypePrices(jobForm.jobType);
-      console.log(`Job price: ${ethers.formatEther(jobPrice)} DATACOIN`);
+      console.log(`Job price: ${ethers.formatEther(jobPrice)} DTC`);
 
-      // Check user's DATACOIN balance
-      const datacoinContract = new ethers.Contract(config.CONTRACT_ADDRESS, [
-        "function balanceOf(address) view returns (uint256)",
-        "function allowance(address owner, address spender) view returns (uint256)",
-        "function approve(address spender, uint256 amount) external returns (bool)"
-      ], signer);
+      // Check if user has enough DTC balance
+      const userBalance = await provider.getBalance(wallet.address);
+      console.log(`User balance: ${ethers.formatEther(userBalance)} DTC`);
 
-      const userBalance = await datacoinContract.balanceOf(wallet.address);
-      const allowance = await datacoinContract.allowance(wallet.address, config.JOB_PAYMENT_ADDRESS);
-
-      console.log(`User balance: ${ethers.formatEther(userBalance)} DATACOIN`);
-      console.log(`Current allowance: ${ethers.formatEther(allowance)} DATACOIN`);
-
-      // Check if user has enough balance
       if (userBalance < jobPrice) {
-        alert(`❌ Insufficient DATACOIN balance. Need: ${ethers.formatEther(jobPrice)} DATACOIN`);
+        alert(`❌ Insufficient DTC balance. Need: ${ethers.formatEther(jobPrice)} DTC`);
         return;
       }
 
-      // Check if allowance is sufficient, if not approve first
-      if (allowance < jobPrice) {
-        console.log('Need to approve DATACOIN spending...');
-        const approveTx = await datacoinContract.approve(config.JOB_PAYMENT_ADDRESS, jobPrice);
-        await approveTx.wait();
-        console.log('✅ DATACOIN approved');
-      }
-
-      const tx = await contract.requestJob(jobForm.jobType, jobForm.params);
+      // Send transaction with DTC
+      const tx = await contract.requestJob(jobForm.jobType, jobForm.params, { value: jobPrice });
       console.log('Transaction sent:', tx.hash);
 
       await tx.wait();
@@ -164,7 +147,7 @@ const JobsPage: React.FC = () => {
               >
                 {jobTypes.map(type => (
                   <option key={type.value} value={type.value}>
-                    {type.label} - {type.price} DATACOIN
+                    {type.label} - {type.price} DTC
                   </option>
                 ))}
               </select>
@@ -223,7 +206,7 @@ const JobsPage: React.FC = () => {
                     <tr key={job.id} className="border-t border-gray-200 dark:border-gray-700">
                       <td className="px-4 py-2 text-gray-900 dark:text-gray-100 font-medium">#{job.id}</td>
                       <td className="px-4 py-2 text-gray-900 dark:text-gray-100 font-medium">{job.jobType}</td>
-                      <td className="px-4 py-2 text-gray-900 dark:text-gray-100 font-medium">{job.payment} DATACOIN</td>
+                      <td className="px-4 py-2 text-gray-900 dark:text-gray-100 font-medium">{job.payment} DTC</td>
                       <td className="px-4 py-2">
                         <span className={`px-2 py-1 rounded text-sm font-medium ${
                           job.status == 'Completed' ? 'bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400' :
