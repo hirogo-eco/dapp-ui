@@ -3,7 +3,9 @@ import { NetworkConfig } from '../types';
 // Environment variables with fallbacks
 export const config = {
   // Contract configuration
-  CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xF19A2d609770c473a38b0547217ec60FF0AeF0aB',
+  CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xBCadAB9A51037ffbb1Fd29f718585006Bf053498',
+  // JobPayment Contract
+  JOB_PAYMENT_ADDRESS: process.env.NEXT_PUBLIC_JOB_PAYMENT_ADDRESS || '0x9bb4912D7F36078Ba3c04CeE926700B91EAaDA09',
 
   // Network configuration
   CHAIN_ID: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '9000'),
