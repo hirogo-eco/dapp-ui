@@ -9,10 +9,11 @@ const JobsPage: React.FC = () => {
   const { wallet, provider } = useWeb3();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [jobForm, setJobForm] = useState({
+  const [jobForm, setJobForm] = useState<{ jobType: string; params: Record<string, string> }>({
     jobType: 'data_processing',
-    params: ''
+    params: {}
   });
+  const [jobResult, setJobResult] = useState<string | null>(null);
 
   const JOB_PAYMENT_ABI = [
     "function requestJob(string memory jobType, string memory params) external payable",
@@ -20,17 +21,42 @@ const JobsPage: React.FC = () => {
     "function jobTypePrices(string) view returns (uint256)",
     "function nextJobId() view returns (uint256)",
     "event JobRequested(uint256 indexed jobId, address indexed requester, string jobType, uint256 payment)",
-    "event JobCompleted(uint256 indexed jobId, bool success)"
+    "event JobCompleted(uint256 indexed jobId, bool success)",
+    "function getJobResult(uint256 jobId) view returns (string)"
   ];
 
   const jobTypes = [
     { value: 'data_processing', label: 'Data Processing', price: '10' },
     { value: 'ai_training', label: 'AI Training', price: '50' },
     { value: 'image_analysis', label: 'Image Analysis', price: '20' },
-    { value: 'text_analysis', label: 'Text Analysis', price: '15' }
+    { value: 'text_analysis', label: 'Text Analysis', price: '15' },
+    { value: 'text_generation', label: 'Text Generation', price: '25' },
+    { value: 'image_generation', label: 'Image Generation', price: '30' },
+    { value: 'speech_to_text', label: 'Speech to Text', price: '40' }
   ];
 
   const statusLabels = ['Pending', 'Running', 'Completed', 'Failed', 'Cancelled'];
+
+  const jobTypeFields: Record<string, { label: string; placeholder: string; key: string }[]> = {
+    data_processing: [
+      { label: 'Numbers', placeholder: 'Enter numbers (comma-separated)', key: 'numbers' }
+    ],
+    text_analysis: [
+      { label: 'Text', placeholder: 'Enter text for analysis', key: 'text' }
+    ],
+    image_analysis: [
+      { label: 'Image URL', placeholder: 'Enter image URL', key: 'image_url' }
+    ],
+    text_generation: [
+      { label: 'Prompt', placeholder: 'Enter prompt for text generation', key: 'prompt' }
+    ],
+    image_generation: [
+      { label: 'Prompt', placeholder: 'Enter prompt for image generation', key: 'prompt' }
+    ],
+    speech_to_text: [
+      { label: 'Audio URL', placeholder: 'Enter audio URL', key: 'audio_url' }
+    ]
+  };
 
   const createJob = async () => {
     if (!wallet.address || !provider) {
@@ -39,6 +65,7 @@ const JobsPage: React.FC = () => {
     }
 
     setLoading(true);
+    setJobResult(null); // Reset kết quả trước khi tạo job
     try {
       const signer = await provider.getSigner();
       const contract = new ethers.Contract(config.JOB_PAYMENT_ADDRESS, JOB_PAYMENT_ABI, signer);
@@ -57,18 +84,17 @@ const JobsPage: React.FC = () => {
       }
 
       // Send transaction with DTC
-      const tx = await contract.requestJob(jobForm.jobType, jobForm.params, { value: jobPrice });
+      const tx = await contract.requestJob(jobForm.jobType, JSON.stringify(jobForm.params), { value: jobPrice });
       console.log('Transaction sent:', tx.hash);
 
       await tx.wait();
       console.log('Transaction confirmed');
 
       alert('✅ Job created successfully! Backend will process it automatically.');
-      setJobForm({ jobType: 'data_processing', params: '' });
+      setJobForm({ jobType: 'data_processing', params: {} });
 
       // Refresh job list
       await loadMyJobs();
-
     } catch (error: any) {
       console.error('Error creating job:', error);
       alert(`❌ Failed to create job: ${error.message}`);
@@ -76,6 +102,40 @@ const JobsPage: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!provider || !wallet.address) return;
+
+    const contract = new ethers.Contract(config.JOB_PAYMENT_ADDRESS, JOB_PAYMENT_ABI, provider);
+
+    const handleJobCompleted = async (jobId: ethers.BigNumber, success: boolean) => {
+      console.log(`🔔 JobCompleted event received for jobId: ${jobId.toString()}, success: ${success}`);
+
+      // Lấy thông tin chi tiết của job từ hợp đồng
+      const job = await contract.jobs(jobId);
+      console.log(`🔍 Job details:`, job);
+
+      if (job.requester.toLowerCase() == wallet.address.toLowerCase()) {
+        let resultText = '';
+        if (success) {
+          resultText = await contract.getJobResult(jobId);
+          setJobResult(`Job ${jobId} completed successfully: ${resultText}`);
+        } else {
+          setJobResult(`Job ${jobId} failed.`);
+        }
+      }
+
+      await loadMyJobs();
+    };
+
+    // Lắng nghe sự kiện JobCompleted
+    contract.on("JobCompleted", handleJobCompleted);
+
+    return () => {
+      // Gỡ bỏ listener khi component bị unmount
+      contract.off("JobCompleted", handleJobCompleted);
+    };
+  }, [provider, wallet.address]);
 
   const loadMyJobs = async () => {
     if (!wallet.address) return;
@@ -142,10 +202,10 @@ const JobsPage: React.FC = () => {
               <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Job Type</label>
               <select
                 value={jobForm.jobType}
-                onChange={(e) => setJobForm({...jobForm, jobType: e.target.value})}
+                onChange={(e) => setJobForm({ jobType: e.target.value, params: {} })}
                 className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
               >
-                {jobTypes.map(type => (
+                {jobTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label} - {type.price} DTC
                   </option>
@@ -153,16 +213,23 @@ const JobsPage: React.FC = () => {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">Parameters</label>
-              <input
-                type="text"
-                value={jobForm.params}
-                onChange={(e) => setJobForm({...jobForm, params: e.target.value})}
-                placeholder="Job parameters (JSON format)"
-                className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
-              />
-            </div>
+            {jobTypeFields[jobForm.jobType]?.map((field) => (
+              <div key={field.key}>
+                <label className="block text-sm font-medium text-gray-900 dark:text-gray-100 mb-2">{field.label}</label>
+                <input
+                  type="text"
+                  value={jobForm.params[field.key] || ''}
+                  onChange={(e) =>
+                    setJobForm({
+                      ...jobForm,
+                      params: { ...jobForm.params, [field.key]: e.target.value }
+                    })
+                  }
+                  placeholder={field.placeholder}
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                />
+              </div>
+            ))}
           </div>
 
           <button
@@ -173,6 +240,13 @@ const JobsPage: React.FC = () => {
             {loading ? 'Creating...' : 'Create Job'}
           </button>
         </div>
+
+        {jobResult && (
+          <div className="mt-4 bg-green-100 text-green-800 p-4 rounded mb-4">
+            <h3 className="font-bold">Job Result:</h3>
+            <p>{jobResult}</p>
+          </div>
+        )}
 
         {/* Job List */}
         <div className="bg-gray-800 rounded-lg shadow p-6">

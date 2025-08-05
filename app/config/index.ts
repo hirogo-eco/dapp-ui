@@ -3,9 +3,9 @@ import { NetworkConfig } from '../types';
 // Environment variables with fallbacks
 export const config = {
   // Contract configuration
-  CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0xBCadAB9A51037ffbb1Fd29f718585006Bf053498',
+  CONTRACT_ADDRESS: process.env.NEXT_PUBLIC_CONTRACT_ADDRESS || '0x3C0A33fDc3149655569b1D8B3834B92405A70133',
   // JobPayment Contract
-  JOB_PAYMENT_ADDRESS: process.env.NEXT_PUBLIC_JOB_PAYMENT_ADDRESS || '0x9bb4912D7F36078Ba3c04CeE926700B91EAaDA09',
+  JOB_PAYMENT_ADDRESS: process.env.NEXT_PUBLIC_JOB_PAYMENT_ADDRESS || '0x763Dd2Faa4cABB0A19eb437701f8834bD823ED91',
 
   // Network configuration
   CHAIN_ID: parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '9000'),
@@ -64,7 +64,7 @@ export const NETWORKS: Record<number, NetworkConfig> = {
     chainId: 9000,
     chainName: 'DATACOIN Network',
     rpcUrl: config.RPC_URL,
-    blockExplorerUrl: 'http://localhost:8545',
+    blockExplorerUrl: config.RPC_URL,
     nativeCurrency: {
       name: config.NATIVE_TOKEN_NAME,
       symbol: config.NATIVE_TOKEN_SYMBOL,
