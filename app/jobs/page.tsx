@@ -194,7 +194,7 @@ const JobsPage: React.FC = () => {
       <div className=" max-w-7xl min-h-screen mx-auto px-8 sm:px-12 lg:px-12 py-8">
         <h1 className="text-3xl font-bold mb-6">🔧 Job Management</h1>
         {/* Create Job Form */}
-        <div className="bg-gray-800 rounded-lg shadow p-6 mb-6">
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg shadow p-6 mb-6">
           <h2 className="text-xl font-semibold mb-4">Create New Job</h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,7 +203,7 @@ const JobsPage: React.FC = () => {
               <select
                 value={jobForm.jobType}
                 onChange={(e) => setJobForm({ jobType: e.target.value, params: {} })}
-                className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
+                className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white focus:border-blue-500 focus:ring-blue-500"
               >
                 {jobTypes.map((type) => (
                   <option key={type.value} value={type.value}>
@@ -226,7 +226,7 @@ const JobsPage: React.FC = () => {
                     })
                   }
                   placeholder={field.placeholder}
-                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-800 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
+                  className="w-full border border-gray-300 dark:border-gray-600 rounded px-3 py-2 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:border-blue-500 focus:ring-blue-500"
                 />
               </div>
             ))}
@@ -249,7 +249,7 @@ const JobsPage: React.FC = () => {
         )}
 
         {/* Job List */}
-        <div className="bg-gray-800 rounded-lg shadow p-6">
+        <div className="bg-gray-100 dark:bg-gray-800 rounded-lg shadow p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-xl font-semibold">My Jobs</h2>
             <button
