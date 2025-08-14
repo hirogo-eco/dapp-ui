@@ -18,11 +18,6 @@ resources:
   gpuMemory: 8Gi
   gpuInterface: pcie
 
-input:
-  # Define input data sources
-  data_source: "s3://bucket-name/input-data"
-  format: "csv"
-
 output:
   # Define output destinations
   result_destination: "s3://bucket-name/output-data"

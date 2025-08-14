@@ -38,52 +38,25 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
 
         const jobTypeInfo = await contract.getJobTypeInfo(jobType);
 
+        // Set job type image
+        setJobTypeImage(jobTypeInfo.image);
+
         // Fetch YAML content
         const response = await fetch(jobTypeInfo.yaml);
         if (response.ok) {
           const content = await response.text();
-          setYamlContent(content);
+          // Update the YAML content with job type image and current form values
+          const updatedContent = content
+            .replace(/name: .*/, `name: job_${jobType}_${Date.now()}`)
+            .replace(/image: .*/, `image: ${jobTypeInfo.image}`);
+          setYamlContent(updatedContent);
         } else {
           throw new Error('Failed to fetch YAML file');
         }
       } catch (error) {
         console.error('Failed to load yaml:', error);
         // Fallback to default content from the actual file
-        const content = `# Job1 Configuration
-# This is a sample configuration file for the Job1 data processing job
-
-version: '1.0'
-job:
-  name: job1-data-processing
-  description: Data processing job with configurable resources
-  type: docker
-  image: dockerimagestest_job1:latest
-
-resources:
-  cpu: 1
-  memory: 1Gi
-  gpu: 0
-
-input:
-  # Define input data sources
-  data_source: "s3://bucket-name/input-data"
-  format: "csv"
-
-output:
-  # Define output destinations
-  result_destination: "s3://bucket-name/output-data"
-  format: "parquet"
-
-parameters:
-  # Custom parameters for the job
-  processing_mode: "batch"
-  compression: "gzip"
-  partition_size: 1000
-
-environment:
-  # Environment variables
-  LOG_LEVEL: "INFO"
-  ENABLE_CACHE: "true"`;
+        const content = ``;
         setYamlContent(content);
       }
     };
@@ -91,45 +64,47 @@ environment:
     loadYamlContent();
   }, [jobType]);
 
+  // Load job type info to get image
+  const [jobTypeImage, setJobTypeImage] = useState<string>('');
+  useEffect(() => {
+    const loadJobTypeInfo = async () => {
+      try {
+        const provider = new ethers.JsonRpcProvider(config.RPC_URL);
+        const contract = new ethers.Contract(config.JOB_PAYMENT_ADDRESS, [
+          "function getJobTypeInfo(string calldata jobType) view returns (string image, string readme, string yaml, bool exists)"
+        ], provider);
+
+        const jobTypeInfo = await contract.getJobTypeInfo(jobType);
+        setJobTypeImage(jobTypeInfo.image);
+      } catch (error) {
+        console.error('Failed to load job type info:', error);
+      }
+    };
+
+    loadJobTypeInfo();
+  }, [jobType]);
+
   // Update YAML content when form values change
   useEffect(() => {
-    const updatedYaml = `# Job Configuration for ${jobType}
-# This is a sample configuration file
+    // Only update YAML when we have the YAML content
+    if (!yamlContent) return;
 
-version: '1.0'
-job:
-  name: ${jobType}-job
-  description: Job configuration
-  type: docker
+    // Update YAML content with form values
+    let updatedYaml = yamlContent;
 
-resources:
-  cpu: ${jobForm.cpu}
-  memory: ${jobForm.mem}Gi
-  gpu: ${jobForm.gpu}
-
-input:
-  # Define input data sources
-  data_source: "s3://bucket-name/input-data"
-  format: "csv"
-
-output:
-  # Define output destinations
-  result_destination: "s3://bucket-name/output-data"
-  format: "parquet"
-
-parameters:
-  # Custom parameters for the job
-  processing_mode: "batch"
-  compression: "gzip"
-  partition_size: 1000
-
-environment:
-  # Environment variables
-  LOG_LEVEL: "INFO"
-  ENABLE_CACHE: "true"`;
+    // Update resources section
+    updatedYaml = updatedYaml
+      .replace(/cpu:\s*.*/, `cpu: ${jobForm.cpu}`)
+      .replace(/memory:\s*.*/, `memory: ${jobForm.mem}Gi`)
+      .replace(/gpu:\s*.*/, `gpu: ${jobForm.gpu}`)
+      .replace(/storageSsd:\s*.*/, `storageSsd: ${jobForm.storageSsd}Gi`)
+      .replace(/gpuVendor:\s*.*/, `gpuVendor: ${jobForm.gpuVendor}`)
+      .replace(/gpuModel:\s*.*/, `gpuModel: ${jobForm.gpuModel}`)
+      .replace(/gpuMemory:\s*.*/, `gpuMemory: ${jobForm.gpuMemory}`)
+      .replace(/gpuInterface:\s*.*/, `gpuInterface: ${jobForm.gpuInterface}`);
 
     setYamlContent(updatedYaml);
-  }, [jobForm, jobType]);
+  }, [jobForm, yamlContent, jobType]);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -168,6 +143,36 @@ environment:
             newJobForm.gpu = gpuMatch[1];
           }
         }
+        if (line.includes('storageSsd:')) {
+          const storageMatch = line.match(/storageSsd:\s*(\d+)/);
+          if (storageMatch && storageMatch[1]) {
+            newJobForm.storageSsd = storageMatch[1];
+          }
+        }
+        if (line.includes('gpuVendor:')) {
+          const vendorMatch = line.match(/gpuVendor:\s*(\w+)/);
+          if (vendorMatch && vendorMatch[1]) {
+            newJobForm.gpuVendor = vendorMatch[1];
+          }
+        }
+        if (line.includes('gpuModel:')) {
+          const modelMatch = line.match(/gpuModel:\s*([^\s]+)/);
+          if (modelMatch && modelMatch[1]) {
+            newJobForm.gpuModel = modelMatch[1];
+          }
+        }
+        if (line.includes('gpuMemory:')) {
+          const memoryMatch = line.match(/gpuMemory:\s*([^\s]+)/);
+          if (memoryMatch && memoryMatch[1]) {
+            newJobForm.gpuMemory = memoryMatch[1];
+          }
+        }
+        if (line.includes('gpuInterface:')) {
+          const interfaceMatch = line.match(/gpuInterface:\s*([^\s]+)/);
+          if (interfaceMatch && interfaceMatch[1]) {
+            newJobForm.gpuInterface = interfaceMatch[1];
+          }
+        }
       });
 
       setJobForm(newJobForm);
@@ -192,6 +197,7 @@ environment:
       gpu: jobForm.gpu,
       storageSsd: jobForm.storageSsd,
       gpuInfo: `${jobForm.gpuVendor}:${jobForm.gpuModel}:${jobForm.gpuMemory}:${jobForm.gpuInterface}`,
+      yamlContent: yamlContent,
     };
 
     onShowPopup(jobData);
