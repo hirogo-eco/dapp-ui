@@ -1,0 +1,40 @@
+# Job1 Configuration
+# This is a sample configuration file for the Job1 data processing job
+
+version: '1.0'
+job:
+  name: job1-data-processing
+  description: Data processing job with configurable resources
+  type: docker
+  image: dockerimagestest_job1:latest
+
+resources:
+  cpu: 2
+  memory: 1Gi
+  gpu: 0
+  storageSsd: 1Gi
+  gpuVendor: nvidia
+  gpuModel: rtx3060
+  gpuMemory: 8Gi
+  gpuInterface: pcie
+
+input:
+  # Define input data sources
+  data_source: "s3://bucket-name/input-data"
+  format: "csv"
+
+output:
+  # Define output destinations
+  result_destination: "s3://bucket-name/output-data"
+  format: "parquet"
+
+parameters:
+  # Custom parameters for the job
+  processing_mode: "batch"
+  compression: "gzip"
+  partition_size: 1000
+
+environment:
+  # Environment variables
+  LOG_LEVEL: "INFO"
+  ENABLE_CACHE: "true"
