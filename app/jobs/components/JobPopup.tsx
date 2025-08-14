@@ -5,7 +5,6 @@ interface JobPopupProps {
     jobType: string;
     cpu: string;
     mem: string;
-    gpu: string;
     storageSsd: string;
     gpuInfo: string;
   };
@@ -51,10 +50,6 @@ const JobPopup: React.FC<JobPopupProps> = ({ jobData, onClose, onConfirm }) => {
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Memory:</span>
               <span className="font-medium">{jobData.mem} Gi</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600 dark:text-gray-300">GPU:</span>
-              <span className="font-medium">{jobData.gpu} units</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600 dark:text-gray-300">Storage SSD:</span>

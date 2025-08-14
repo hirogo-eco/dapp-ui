@@ -194,9 +194,9 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
       jobType,
       cpu: jobForm.cpu,
       mem: jobForm.mem,
-      gpu: jobForm.gpu,
       storageSsd: jobForm.storageSsd,
-      gpuInfo: `${jobForm.gpuVendor}:${jobForm.gpuModel}:${jobForm.gpuMemory}:${jobForm.gpuInterface}`,
+      gpu: jobForm.gpu,
+      gpuInfo: `${jobForm.gpuVendor}:${jobForm.gpuModel}:${jobForm.gpuMemory}:${jobForm.gpuInterface}:${jobForm.gpu}`,
       yamlContent: yamlContent,
     };
 
@@ -267,6 +267,30 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
           </div>
 
 
+
+          {/* Memory */}
+          <div className="bg-gray-800 p-4 rounded">
+            <div className="flex justify-between items-center">
+              <label className="font-medium text-white">Memory (GB)</label>
+              <input
+                type="number"
+                name="mem"
+                value={jobForm.mem}
+                onChange={handleInputChange}
+                className="w-20 px-2 py-1 rounded bg-gray-700 text-white border border-gray-600"
+              />
+            </div>
+            <input
+              type="range"
+              min="1"
+              max="256"
+              value={jobForm.mem}
+              onChange={handleInputChange}
+              name="mem"
+              className="w-full mt-2"
+            />
+          </div>
+
                     {/* GPU */}
                     <div className="bg-gray-800 p-4 rounded">
                       <div className="flex justify-between items-center">
@@ -330,29 +354,6 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
                         </select>
                       </div>
                     </div>
-          {/* Memory */}
-          <div className="bg-gray-800 p-4 rounded">
-            <div className="flex justify-between items-center">
-              <label className="font-medium text-white">Memory (GB)</label>
-              <input
-                type="number"
-                name="mem"
-                value={jobForm.mem}
-                onChange={handleInputChange}
-                className="w-20 px-2 py-1 rounded bg-gray-700 text-white border border-gray-600"
-              />
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="256"
-              value={jobForm.mem}
-              onChange={handleInputChange}
-              name="mem"
-              className="w-full mt-2"
-            />
-          </div>
-
           {/* Ephemeral Storage */}
           <div className="bg-gray-800 p-4 rounded">
             <div className="flex justify-between items-center">

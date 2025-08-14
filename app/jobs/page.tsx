@@ -34,10 +34,10 @@ const JobsPage: React.FC = () => {
 
   const JOB_PAYMENT_ABI = [
     "function getJobTypes() view returns (string[])",
-    "function requestJob(string calldata jobType, uint256 cpu, uint256 mem, uint256 gpu, uint256 storageSsd, string calldata gpuInfo) payable",
-    "function getJobDetails(uint256 jobId) view returns (uint256 id, address requester, address provider, string jobType, uint256 cpu, uint256 mem, uint256 gpu, uint256 storageSsd, string gpuInfo, uint256 totalPayment, uint256 paidToProvider, uint8 status, string resultHash, uint256 createdAt)",
+    "function requestJob(string calldata jobType, uint256 cpu, uint256 mem, uint256 storageSsd, string calldata gpuInfo) payable",
+    "function getJobDetails(uint256 jobId) view returns (uint256 id, address requester, address provider, string jobType, uint256 cpu, uint256 mem, uint256 storageSsd, string gpuInfo, uint256 totalPayment, uint256 paidToProvider, uint8 status, string resultHash, uint256 createdAt)",
     "function nextJobId() view returns (uint256)",
-    "function jobs(uint256) view returns (uint256 id, address requester, address provider, string jobType, uint256 cpu, uint256 mem, uint256 gpu, uint256 storageSsd, string gpuInfo, uint256 totalPayment, uint256 paidToProvider, uint8 status, string resultHash, uint256 createdAt)",
+    "function jobs(uint256) view returns (uint256 id, address requester, address provider, string jobType, uint256 cpu, uint256 mem, uint256 storageSsd, string gpuInfo, uint256 totalPayment, uint256 paidToProvider, uint8 status, string resultHash, uint256 createdAt)",
     "event JobRequested(uint256 indexed jobId, address indexed requester, string jobType, uint256 payment)",
     "event JobCompleted(uint256 indexed jobId, string resultHash)"
   ];
@@ -62,8 +62,8 @@ const JobsPage: React.FC = () => {
               payment: ethers.formatEther(jobRaw.totalPayment),
               status: statusLabels[jobRaw.status] || 'Unknown',
               createdAt: new Date(Number(jobRaw.createdAt) * 1000).toLocaleString(),
-              params: jobRaw.gpu > 0
-                ? `CPU: ${jobRaw.cpu}, Memory: ${jobRaw.mem}Gi, GPU: ${jobRaw.gpu}, Storage: ${jobRaw.storageSsd}GB, GPU Info: ${jobRaw.gpuInfo}`
+              params: jobRaw.gpuInfo && jobRaw.gpuInfo.length > 0
+                ? `CPU: ${jobRaw.cpu}, Memory: ${jobRaw.mem}Gi, Storage: ${jobRaw.storageSsd}GB, GPU Info: ${jobRaw.gpuInfo}`
                 : `CPU: ${jobRaw.cpu}, Memory: ${jobRaw.mem}Gi, Storage: ${jobRaw.storageSsd}GB`,
             });
           }
@@ -149,7 +149,6 @@ const JobsPage: React.FC = () => {
         popupJobData.jobType,
         popupJobData.cpu,
         popupJobData.mem,
-        popupJobData.gpu,
         popupJobData.storageSsd,
         popupJobData.gpuInfo,
         { value: paymentInWei }
