@@ -271,7 +271,7 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
                     <div className="bg-gray-800 p-4 rounded">
                       <div className="flex justify-between items-center">
                         <label className="font-medium text-white">GPU</label>
-                        <input
+                        <input readOnly
                           type="number"
                           name="gpu"
                           value={jobForm.gpu}
@@ -282,7 +282,7 @@ const CreateJobForm: React.FC<CreateJobFormProps> = ({ jobType, onBack, onJobCre
                       <input
                         type="range"
                         min="0"
-                        max="8"
+                        max="1"
                         value={jobForm.gpu}
                         onChange={handleInputChange}
                         name="gpu"
